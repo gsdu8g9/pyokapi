@@ -1,4 +1,4 @@
-from urllib import request
+from urllib import request, parse
 from hashlib import md5
 
 from .permissions import Permissions
@@ -7,6 +7,21 @@ from .permissions import Permissions
 class API:
     def __init__(self, session):
         self.session = session
+        self._method = ''
+
+    def __call__(self, *args, **kwargs):
+        if self._method not in self.__dict__:
+            raise AttributeError()
+
+        result = getattr(self, self._method)(*args, **kwargs)
+        self._method = ''
+
+        return result
+
+    def __getattr__(self, item):
+        self._method += '_%s' % item
+
+        return self
 
     @staticmethod
     def _sig(parameters, session_secret_key):
@@ -14,7 +29,7 @@ class API:
 
         return md5((parameters_str + session_secret_key).encode()).hexdigest()
 
-    def _call_method(self, method, parameters):
+    def _call_method(self, method, **parameters):
         self.session.start()
 
         parameters.update({'application_key': self.session.application.key, 'method': method})
@@ -25,7 +40,7 @@ class API:
                 md5((self.session.access_token + self.session.application.secret_key).encode()).hexdigest())
         })
 
-        url = 'https://api.ok.ru/fb.do?' + '&'.join('{}={}'.format(key, value) for key, value in parameters.items())
+        url = 'https://api.ok.ru/fb.do?' + parse.urlencode(parameters)
 
         return request.urlopen(url).read().decode()
 
@@ -42,4 +57,4 @@ class API:
             else:
                 parameters['uid'] = user_id
 
-        return self._call_method('users.hasAppPermission', parameters)
+        return self._call_method('users.hasAppPermission', **parameters)

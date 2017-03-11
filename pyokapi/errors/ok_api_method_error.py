@@ -1,0 +1,2 @@
+class OkAPIMethodError(Exception):
+    pass

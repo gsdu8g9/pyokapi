@@ -2,13 +2,20 @@ from bs4 import BeautifulSoup
 from urllib import request, parse
 from time import time
 
-from .client_oauth_session import ClientOAuthSession
 from .wizutils import cookie_jar
 
 
-class AutoClientOAuthSession(ClientOAuthSession):
+class AutoClientOAuthSession():
     def __init__(self, application, permissions, username, password, *, cookies_filename=None):
-        ClientOAuthSession.__init__(self, application, permissions)
+        # TODO: проверка типов
+        self.application = application
+        self.permissions = ';'.join(map(lambda x: x.name, permissions))
+
+        self.life_time = 0
+        self.start_time = 0
+        self.access_token = None
+        self.session_secret_key = None
+        self.permissions_granted = []
         self.username = username
         self.password = password
         self.cookies_filename = cookies_filename
@@ -17,11 +24,6 @@ class AutoClientOAuthSession(ClientOAuthSession):
         # свойствами
         # TODO: реализовать менеджер контекстов, чтобы сохранять и загружать параметры сессии, чтобы не запрашивать
         # из лишний раз
-        self.start_time = 0
-        self.access_token = None
-        self.session_secret_key = None
-        self.permissions_granted = []
-        self.life_time = 0
 
     def start(self):
         if self.life_time > time() - self.start_time:
@@ -59,7 +61,7 @@ class AutoClientOAuthSession(ClientOAuthSession):
             page = request.urlopen(url, data)
 
         # Разрешение прав доступа
-        if page.geturl() == oauth_authorize_url:
+        if page.geturl() == oauth_authorize_url or 'st.cmd=OAuth2Permissions' in page.geturl():
             soup = BeautifulSoup(page.read(), 'lxml')
             url = \
                 'https://connect.ok.ru/dk?' \

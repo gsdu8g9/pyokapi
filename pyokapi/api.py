@@ -1,6 +1,7 @@
 from hashlib import md5
 import json
 from urllib import request, parse
+from .errors import *
 
 from .permissions import Permissions
 
@@ -42,8 +43,13 @@ class API:
         })
 
         url = 'https://api.ok.ru/fb.do?' + parse.urlencode(parameters)
+        result = json.loads(request.urlopen(url).read().decode())
 
-        return json.loads(request.urlopen(url).read().decode())
+        if isinstance(result, dict) and 'error_code' in result:
+            if result['error_code'] == 10:
+                raise OkAPIPermissionDeniedError("User must grant an access to permission '%s'" % result['error_data'].upper())
+
+        return result
 
     def _users_delete_guests(self, *, user_ids):
         if not (isinstance(user_ids, list) and all(map(lambda x: isinstance(x, str), user_ids))):

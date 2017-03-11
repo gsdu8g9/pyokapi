@@ -2,6 +2,7 @@ from bs4 import BeautifulSoup
 from urllib import request, parse
 from time import time
 
+from .permissions import Permissions
 from .wizutils import cookie_jar
 
 
@@ -9,7 +10,16 @@ class AutoClientOAuthSession():
     def __init__(self, application, permissions, username, password, *, cookies_filename=None):
         # TODO: проверка типов
         self.application = application
-        self.permissions = ';'.join(map(lambda x: x.name, permissions))
+        if permissions:
+            if not isinstance(permissions, list):
+                permissions = [permissions]
+
+            if not all(map(lambda x: isinstance(x, Permissions), permissions)):
+                raise TypeError('a list of Permissions is required')
+
+            self.permissions = ';'.join(map(lambda x: x.name, permissions))
+        else:
+            self.permissions = ''
 
         self.life_time = 0
         self.start_time = 0

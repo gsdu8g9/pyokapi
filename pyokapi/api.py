@@ -1,5 +1,6 @@
-from urllib import request, parse
 from hashlib import md5
+import json
+from urllib import request, parse
 
 from .permissions import Permissions
 
@@ -10,7 +11,7 @@ class API:
         self._method = ''
 
     def __call__(self, *args, **kwargs):
-        if self._method not in self.__dict__:
+        if self._method not in dir(self):
             raise AttributeError()
 
         result = getattr(self, self._method)(*args, **kwargs)
@@ -42,18 +43,24 @@ class API:
 
         url = 'https://api.ok.ru/fb.do?' + parse.urlencode(parameters)
 
-        return request.urlopen(url).read().decode()
+        return json.loads(request.urlopen(url).read().decode())
+
+    def _users_delete_guests(self, *, user_ids):
+        if not (isinstance(user_ids, list) and all(map(lambda x: isinstance(x, str), user_ids))):
+            raise TypeError('a list of strings is required')
+
+        return self._call_method('users.deleteGuests', uids=','.join(user_ids))
 
     def _users_has_app_permission(self, *, user_id=None, permission):
         if not isinstance(permission, Permissions):
             # TODO: Создать собственные классы ошибок, чтобы не повторять их текст
-            raise TypeError("an Permissions is required (got type {})".format(permission.__class__.__name__))
+            raise TypeError('a Permissions is required (got type {})'.format(permission.__class__.__name__))
 
         parameters = {'ext_perm': permission.name}
 
         if user_id:
             if not isinstance(user_id, str):
-                raise TypeError("an string is required (got type {})".format(user_id.__class__.__name__))
+                raise TypeError('a string is required (got type {})'.format(user_id.__class__.__name__))
             else:
                 parameters['uid'] = user_id
 

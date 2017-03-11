@@ -9,19 +9,20 @@ from .permissions import Permissions
 class API:
     def __init__(self, session):
         self.session = session
-        self._method = ''
+        self._method = []
 
     def __call__(self, *args, **kwargs):
-        if self._method not in dir(self):
-            raise AttributeError()
+        method = '_%s' % '_'.join(self._method)
 
-        result = getattr(self, self._method)(*args, **kwargs)
-        self._method = ''
+        if method not in dir(self):
+            raise OkAPIMethodError('Method %s not found' % '.'.join(self._method))
 
-        return result
+        self._method = []
+
+        return getattr(self, method)(*args, **kwargs)
 
     def __getattr__(self, item):
-        self._method += '_%s' % item
+        self._method.append(item)
 
         return self
 

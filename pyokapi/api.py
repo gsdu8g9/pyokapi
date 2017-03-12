@@ -58,6 +58,15 @@ class API:
 
         return self._call_method('users.deleteGuests', uids=','.join(user_ids))
 
+    def _users_get_additional_info(self, *, user_ids):
+        if not (isinstance(user_ids, list) and all(map(lambda x: isinstance(x, str), user_ids))):
+            raise TypeError('a list of strings is required')
+
+        if len(user_ids) > 100:
+            raise Exception  # TODO: OkAPIParamError()
+
+        return self._call_method('users.getAdditionalInfo', uids=','.join(user_ids))
+
     def _users_has_app_permission(self, *, user_id=None, permission):
         if not isinstance(permission, Permissions):
             # TODO: Создать собственные классы ошибок, чтобы не повторять их текст

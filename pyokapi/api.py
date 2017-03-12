@@ -1,9 +1,48 @@
 from hashlib import md5
 import json
 from urllib import request, parse
-from .errors import *
 
+from .errors import *
 from .permissions import Permissions
+from .typecheck import *
+
+
+def _user_id(user_id):
+    if user_id:
+        if not is_user_id(user_id):
+            raise OkAPIParamError('invalid uid value {}'.format(user_id))
+
+    return user_id
+
+
+def _user_ids(user_ids, max_len=None):
+    if not is_user_ids_list(user_ids):
+        if not is_user_id(user_ids):
+            raise OkAPIParamError('invalid uids value {}'.format(user_ids))
+
+        user_ids = [user_ids]
+
+    if max_len and max_len < len(user_ids):
+        raise Exception  # TODO: OkAPIParamError()
+
+    return ','.join(user_ids)
+
+
+def _methods_list(methods_list):
+    if not is_methods_list(methods_list):
+        if not isinstance(methods_list, str):
+            raise OkAPIParamError('invalid methods value {}'.format(methods_list))
+
+        methods_list = [methods_list]
+
+    return ','.join(methods_list)
+
+
+def _permission(permission):
+    if not isinstance(permission, Permissions):
+        raise OkAPIParamError('invalid ext_perm value {}'.format(permission))
+
+    return permission.name
 
 
 class API:
@@ -11,49 +50,17 @@ class API:
         def __init__(self, api):
             self.api = api
 
-        def deleteGuests(self, *, user_ids):
-            if not (isinstance(user_ids, list) and all(map(lambda x: isinstance(x, str), user_ids))):
-                raise TypeError('a list of strings is required')
+        def deleteGuests(self, *, uids):
+            return self.api._call_method('users.deleteGuests', uids=_user_ids(uids))
 
-            return self.api._call_method('users.deleteGuests', uids=','.join(user_ids))
+        def getAdditionalInfo(self, *, uids):
+            return self.api._call_method('users.getAdditionalInfo', uids=_user_ids(uids, 100))
 
-        def getAdditionalInfo(self, *, user_ids):
-            if not (isinstance(user_ids, list) and all(map(lambda x: isinstance(x, str), user_ids))):
-                raise TypeError('a list of strings is required')
+        def getCallsLeft(self, *, uid=None, methods):
+            return self.api._call_method('users.getCallsLeft', uid=_user_id(uid), methods=_methods_list(methods))
 
-            if len(user_ids) > 100:
-                raise Exception  # TODO: OkAPIParamError()
-
-            return self.api._call_method('users.getAdditionalInfo', uids=','.join(user_ids))
-
-        def getCallsLeft(self, *, user_id=None, methods):
-            if not (isinstance(methods, list) and all(map(lambda x: isinstance(x, str), methods))):
-                raise TypeError('a list of strings is required')
-
-            parameters = {'methods': ','.join(methods)}
-
-            if user_id:
-                if not isinstance(user_id, str):
-                    raise TypeError('a string is required')
-
-                parameters['uid'] = user_id
-
-            return self.api._call_method('users.getCallsLeft', **parameters)
-
-        def hasAppPermission(self, *, user_id=None, permission):
-            if not isinstance(permission, Permissions):
-                # TODO: Создать собственные классы ошибок, чтобы не повторять их текст
-                raise TypeError('a Permissions is required')
-
-            parameters = {'ext_perm': permission.name}
-
-            if user_id:
-                if not isinstance(user_id, str):
-                    raise TypeError('a string is required')
-
-                parameters['uid'] = user_id
-
-            return self.api._call_method('users.hasAppPermission', **parameters)
+        def hasAppPermission(self, *, uid=None, ext_perm):
+            return self.api._call_method('users.hasAppPermission', uid=_user_id(uid), ext_perm=_permission(ext_perm))
 
     def __init__(self, session):
         self.session = session
@@ -69,6 +76,10 @@ class API:
 
     def _call_method(self, method, **parameters):
         self.session.start()
+
+        for name, value in list(parameters.items()):
+            if not value:
+                del parameters[name]
 
         parameters.update({'application_key': self.session.application.key, 'method': method})
         parameters.update({

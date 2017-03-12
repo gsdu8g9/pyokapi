@@ -9,11 +9,12 @@ def is_user_ids_list(user_ids_list):
     if isinstance(user_ids_list, list):
         if all(map(is_user_id, user_ids_list)):
             return True
-    elif is_user_id(user_ids_list):
-        return True
 
     return False
 
 
 def is_methods_list(methods_list):
-    pass
+    if isinstance(methods_list, list) and all(map(lambda x: isinstance(x, str), methods_list)):
+        return True
+
+    return False

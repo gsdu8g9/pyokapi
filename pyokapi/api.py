@@ -67,17 +67,31 @@ class API:
 
         return self._call_method('users.getAdditionalInfo', uids=','.join(user_ids))
 
+    def _users_get_calls_left(self, *, user_id=None, methods):
+        if not (isinstance(methods, list) and all(map(lambda x: isinstance(x, str), methods))):
+            raise TypeError('a list of strings is required')
+
+        parameters = {'methods': ','.join(methods)}
+
+        if user_id:
+            if not isinstance(user_id, str):
+                raise TypeError('a string is required')
+
+            parameters['uid'] = user_id
+
+        return self._call_method('users.getCallsLeft', **parameters)
+
     def _users_has_app_permission(self, *, user_id=None, permission):
         if not isinstance(permission, Permissions):
             # TODO: Создать собственные классы ошибок, чтобы не повторять их текст
-            raise TypeError('a Permissions is required (got type {})'.format(permission.__class__.__name__))
+            raise TypeError('a Permissions is required')
 
         parameters = {'ext_perm': permission.name}
 
         if user_id:
             if not isinstance(user_id, str):
-                raise TypeError('a string is required (got type {})'.format(user_id.__class__.__name__))
-            else:
-                parameters['uid'] = user_id
+                raise TypeError('a string is required')
+
+            parameters['uid'] = user_id
 
         return self._call_method('users.hasAppPermission', **parameters)

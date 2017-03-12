@@ -7,24 +7,59 @@ from .permissions import Permissions
 
 
 class API:
+    class _users:
+        def __init__(self, api):
+            self.api = api
+
+        def deleteGuests(self, *, user_ids):
+            if not (isinstance(user_ids, list) and all(map(lambda x: isinstance(x, str), user_ids))):
+                raise TypeError('a list of strings is required')
+
+            return self.api._call_method('users.deleteGuests', uids=','.join(user_ids))
+
+        def getAdditionalInfo(self, *, user_ids):
+            if not (isinstance(user_ids, list) and all(map(lambda x: isinstance(x, str), user_ids))):
+                raise TypeError('a list of strings is required')
+
+            if len(user_ids) > 100:
+                raise Exception  # TODO: OkAPIParamError()
+
+            return self.api._call_method('users.getAdditionalInfo', uids=','.join(user_ids))
+
+        def getCallsLeft(self, *, user_id=None, methods):
+            if not (isinstance(methods, list) and all(map(lambda x: isinstance(x, str), methods))):
+                raise TypeError('a list of strings is required')
+
+            parameters = {'methods': ','.join(methods)}
+
+            if user_id:
+                if not isinstance(user_id, str):
+                    raise TypeError('a string is required')
+
+                parameters['uid'] = user_id
+
+            return self.api._call_method('users.getCallsLeft', **parameters)
+
+        def hasAppPermission(self, *, user_id=None, permission):
+            if not isinstance(permission, Permissions):
+                # TODO: Создать собственные классы ошибок, чтобы не повторять их текст
+                raise TypeError('a Permissions is required')
+
+            parameters = {'ext_perm': permission.name}
+
+            if user_id:
+                if not isinstance(user_id, str):
+                    raise TypeError('a string is required')
+
+                parameters['uid'] = user_id
+
+            return self.api._call_method('users.hasAppPermission', **parameters)
+
     def __init__(self, session):
         self.session = session
         self._method = []
 
-    def __call__(self, *args, **kwargs):
-        method = '_%s' % '_'.join(self._method)
-
-        if method not in dir(self):
-            raise OkAPIMethodError('Method %s not found' % '.'.join(self._method))
-
-        self._method = []
-
-        return getattr(self, method)(*args, **kwargs)
-
-    def __getattr__(self, item):
-        self._method.append(item)
-
-        return self
+        self.users = API._users(self)
 
     @staticmethod
     def _sig(parameters, session_secret_key):
@@ -51,47 +86,3 @@ class API:
                 raise OkAPIPermissionDeniedError("User must grant an access to permission '%s'" % result['error_data'].upper())
 
         return result
-
-    def _users_delete_guests(self, *, user_ids):
-        if not (isinstance(user_ids, list) and all(map(lambda x: isinstance(x, str), user_ids))):
-            raise TypeError('a list of strings is required')
-
-        return self._call_method('users.deleteGuests', uids=','.join(user_ids))
-
-    def _users_get_additional_info(self, *, user_ids):
-        if not (isinstance(user_ids, list) and all(map(lambda x: isinstance(x, str), user_ids))):
-            raise TypeError('a list of strings is required')
-
-        if len(user_ids) > 100:
-            raise Exception  # TODO: OkAPIParamError()
-
-        return self._call_method('users.getAdditionalInfo', uids=','.join(user_ids))
-
-    def _users_get_calls_left(self, *, user_id=None, methods):
-        if not (isinstance(methods, list) and all(map(lambda x: isinstance(x, str), methods))):
-            raise TypeError('a list of strings is required')
-
-        parameters = {'methods': ','.join(methods)}
-
-        if user_id:
-            if not isinstance(user_id, str):
-                raise TypeError('a string is required')
-
-            parameters['uid'] = user_id
-
-        return self._call_method('users.getCallsLeft', **parameters)
-
-    def _users_has_app_permission(self, *, user_id=None, permission):
-        if not isinstance(permission, Permissions):
-            # TODO: Создать собственные классы ошибок, чтобы не повторять их текст
-            raise TypeError('a Permissions is required')
-
-        parameters = {'ext_perm': permission.name}
-
-        if user_id:
-            if not isinstance(user_id, str):
-                raise TypeError('a string is required')
-
-            parameters['uid'] = user_id
-
-        return self._call_method('users.hasAppPermission', **parameters)

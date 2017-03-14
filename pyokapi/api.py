@@ -1,6 +1,8 @@
-from hashlib import md5
 import json
+from hashlib import md5
 from urllib import request, parse
+
+from .ok_api_error import OkAPIError
 
 
 class API:
@@ -41,11 +43,11 @@ class API:
         })
 
         url = 'https://api.ok.ru/fb.do?' + parse.urlencode(kwargs)
-        result = json.loads(request.urlopen(url).read().decode())
+        response = json.loads(request.urlopen(url).read().decode())
 
-        # TODO: Внутренняя обработка ошибок
-        # if isinstance(result, dict) and 'error_code' in result:
-        #     if result['error_code'] == 10:
-        #         raise OkAPIError("User must grant an access to permission '%s'" % result['error_data'].upper())
+        if isinstance(response, dict) and 'error_code' in response:
+            response['method'] = method
+            response['parameters'] = kwargs
+            raise OkAPIError(response)
 
-        return result
+        return response

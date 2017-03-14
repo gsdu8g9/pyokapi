@@ -2,47 +2,37 @@ from bs4 import BeautifulSoup
 from urllib import request, parse
 from time import time
 
-from .permissions import Permissions
-from .wizutils import cookie_jar
+from .wizutils import cookie_jar  # TODO: Подумать надо над именем модуля и функции
 
 
-class AutoClientOAuthSession():
+class AutoClientOAuthSession:
     def __init__(self, application, permissions, username, password, *, cookies_filename=None):
-        # TODO: проверка типов
         self.application = application
-        if permissions:
-            if not isinstance(permissions, list):
-                permissions = [permissions]
-
-            if not all(map(lambda x: isinstance(x, Permissions), permissions)):
-                raise TypeError('a list of Permissions is required')
-
-            self.permissions = ';'.join(map(lambda x: x.name, permissions))
-        else:
-            self.permissions = ''
-
-        self.life_time = 0
-        self.start_time = 0
         self.access_token = None
-        self.session_secret_key = None
-        self.permissions_granted = []
-        self.username = username
-        self.password = password
-        self.cookies_filename = cookies_filename
 
-        # TODO: определить какие атрибуты используются только внутри класса, сделать из приватными, а внешние сделать
-        # свойствами
-        # TODO: реализовать менеджер контекстов, чтобы сохранять и загружать параметры сессии, чтобы не запрашивать
-        # из лишний раз
+        self._permissions = ';'.join(permissions)
+        self._username = username
+        self._password = password
+        self._cookies_filename = cookies_filename
+
+        self._life_time = 0
+        self._start_time = 0
+        self._session_secret_key = None
+        self._permissions_granted = []
+
+        # TODO:
+        # - Реализовать менеджер контекстов, чтобы сохранять и загружать параметры сессии, чтобы не запрашивать из
+        # лишний раз
+        # - Сохранять все данные в файл используя модуль pickle вклюая куки
 
     def start(self):
-        if self.life_time > time() - self.start_time:
+        if self._life_time > time() - self._start_time:
             return
 
         request.install_opener(
             request.build_opener(
                 request.HTTPCookieProcessor(
-                    cookie_jar(self.cookies_filename)
+                    cookie_jar(self._cookies_filename)
                 )
             )
         )
@@ -52,7 +42,7 @@ class AutoClientOAuthSession():
             'https://connect.ok.ru/oauth/authorize?' \
             'client_id={client_id}&scope={scope}&response_type=token&redirect_uri={redirect_uri}'.format(
                 client_id=self.application.id,
-                scope=self.permissions,
+                scope=self._permissions,
                 redirect_uri=self.application.redirect_uri
             )
         page = request.urlopen(oauth_authorize_url)
@@ -64,8 +54,8 @@ class AutoClientOAuthSession():
             query = {
                 'fr.posted': 'set',
                 'fr.remember': 'on',
-                'fr.email': self.username,
-                'fr.password': self.password
+                'fr.email': self._username,
+                'fr.password': self._password
             }
             data = parse.urlencode(query).encode('ascii')
             page = request.urlopen(url, data)
@@ -78,7 +68,7 @@ class AutoClientOAuthSession():
                 'st.cmd=OAuth2Permissions&st.scope={scope}&st.response_type=token&st.show_permissions=off&' \
                 'st.redirect_uri={redirect_uri}&st.client_id={client_id}&cmd=OAuth2Permissions'.format(
                     client_id=self.application.id,
-                    scope=self.permissions,
+                    scope=self._permissions,
                     redirect_uri=self.application.redirect_uri
                 )
             query = {
@@ -90,10 +80,10 @@ class AutoClientOAuthSession():
             page = request.urlopen(url, data)
 
         # Получение access_token
-        self.start_time = time()
+        self._start_time = time()
         parameters = parse.parse_qs(parse.urlparse(page.geturl())[5])
         self.access_token = parameters['access_token'][0]
-        self.session_secret_key = parameters['session_secret_key'][0]
+        self._session_secret_key = parameters['session_secret_key'][0]
         if 'permissions_granted' in parameters:
-            self.permissions_granted = parameters['permissions_granted'][0].split(';')
-        self.life_time = int(parameters['expires_in'][0])
+            self._permissions_granted = parameters['permissions_granted'][0].split(';')
+        self._life_time = int(parameters['expires_in'][0])
